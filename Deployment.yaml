@@ -1,0 +1,81 @@
+##################################################################################################
+# Offers service
+##################################################################################################
+apiVersion: v1
+kind: Service
+metadata:
+  name: offers-svc
+  labels:
+    app: offers-svc
+    service: offers-svc
+spec:
+  ports:
+  - name: http
+    port: 9081
+  selector:
+    app: offers-svc
+  type: NodePort
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: ctibco-offers-svc
+  labels:
+    account: offers-svc
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Rollout
+metadata:
+  name: offers-svc
+  labels:
+    app: offers-svc
+    version: v1
+spec:
+  replicas: 5
+  strategy:
+    canary:
+      steps:
+      - setWeight: 20
+      - pause: {}
+      - setWeight: 40
+      - pause: {duration: 10}
+      - setWeight: 60
+      - pause: {duration: 10}
+      - setWeight: 80
+      - pause: {duration: 10}
+  revisionHistoryLimit: 2
+  selector:
+    matchLabels:
+      app: offers-svc
+      version: v1
+  template:
+    metadata:
+      labels:
+        app: offers-svc
+        version: v1
+    spec:
+      serviceAccountName: ctibco-offers-svc
+      containers:
+      - env:
+        - name: OFFERS_MY_PORT
+          value: "9081"
+        - name: BW_PROFILE
+          value: "docker" 
+        image: docker.io/u3132/offers:2.0.0
+        imagePullPolicy: IfNotPresent
+#        readinessProbe:
+#          httpGet:
+#            port: 7777
+#            path: /_ping
+#          initialDelaySeconds: 15
+#          periodSeconds: 5
+        resources:
+          requests:
+            memory: 500Mi
+            cpu: 500m
+          limits:
+            memory: 900Mi
+            cpu: 1000m
+        name: offers-svc
+        ports:
+        - containerPort: 9081
